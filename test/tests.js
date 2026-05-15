@@ -207,12 +207,12 @@ gameState.stats.totalStardust = 20000;
 assert('getPrestigeShardGain() = 2 at 20000 totalStardust', getPrestigeShardGain() === 2, getPrestigeShardGain());
 
 freshState();
-gameState.stats.totalLunarEssence = 500;
-assert('getPrestigeShardGain() = 1 from lunarEssence alone (500)', getPrestigeShardGain() === 1, getPrestigeShardGain());
+gameState.stats.totalLunarEssence = 1000;
+assert('getPrestigeShardGain() = 1 from lunarEssence alone (1000)', getPrestigeShardGain() === 1, getPrestigeShardGain());
 
 freshState();
-gameState.stats.totalSolarFlare = 50;
-assert('getPrestigeShardGain() = 1 from solarFlare alone (50)', getPrestigeShardGain() === 1, getPrestigeShardGain());
+gameState.stats.totalSolarFlare = 500;
+assert('getPrestigeShardGain() = 1 from solarFlare alone (500)', getPrestigeShardGain() === 1, getPrestigeShardGain());
 
 freshState();
 assertClose('getPrestigeMultiplier() = 1.0 on fresh state', getPrestigeMultiplier(), 1.0);
@@ -255,9 +255,9 @@ gameState.prestige.upgrades.push('frugal_universe');
 assertClose('getUpgradeCost(telescope) ≈ 8 with frugal_universe', getUpgradeCost('telescope'), 8, 1);
 
 freshState();
-gameState.prestige.shards = 3;
+gameState.prestige.shards = 5;
 const boughtMoongate = tryBuyPrestigeUpgrade('moongate');
-assert('tryBuyPrestigeUpgrade(moongate) returns true with 3 shards', boughtMoongate === true, boughtMoongate);
+assert('tryBuyPrestigeUpgrade(moongate) returns true with 5 shards', boughtMoongate === true, boughtMoongate);
 assert('shards deducted after buying moongate', gameState.prestige.shards === 0, gameState.prestige.shards);
 assert('moongate in prestige.upgrades', gameState.prestige.upgrades.includes('moongate'));
 assert('getLunarUnlockThreshold() = 750 with moongate', getLunarUnlockThreshold() === 750, getLunarUnlockThreshold());

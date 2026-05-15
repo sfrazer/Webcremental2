@@ -1,12 +1,12 @@
 'use strict';
 
 const PRESTIGE_UPGRADES = [
-  { id: 'starter_stardust', name: 'Stardust Cache',  cost: 2, desc: 'Begin each run with 500 Stardust.' },
-  { id: 'quick_gather',     name: 'Practiced Hands', cost: 2, desc: '+2 stardust per click, permanently.' },
-  { id: 'ancient_memory',   name: 'Ancient Memory',  cost: 3, desc: 'Begin each run with Cosmic Insight already researched.' },
-  { id: 'moongate',         name: 'Moongate',        cost: 3, desc: 'Lunar Essence unlocks at 750 Stardust instead of 1,000.' },
-  { id: 'sun_door',         name: 'Sun Door',        cost: 4, desc: 'Solar Flare unlocks at 750 Lunar Essence instead of 1,000.' },
-  { id: 'frugal_universe',  name: 'Frugal Universe', cost: 5, desc: 'All upgrade costs permanently ×0.80.' },
+  { id: 'starter_stardust', name: 'Stardust Cache',  cost: 3, desc: 'Begin each run with 500 Stardust.' },
+  { id: 'quick_gather',     name: 'Practiced Hands', cost: 3, desc: '+2 stardust per click, permanently.' },
+  { id: 'ancient_memory',   name: 'Ancient Memory',  cost: 5, desc: 'Begin each run with Cosmic Insight already researched.' },
+  { id: 'moongate',         name: 'Moongate',        cost: 5, desc: 'Lunar Essence unlocks at 750 Stardust instead of 1,000.' },
+  { id: 'sun_door',         name: 'Sun Door',        cost: 7, desc: 'Solar Flare unlocks at 750 Lunar Essence instead of 1,000.' },
+  { id: 'frugal_universe',  name: 'Frugal Universe', cost: 8, desc: 'All upgrade costs permanently ×0.80.' },
 ];
 
 const UPGRADE_BASE_RATES = {
