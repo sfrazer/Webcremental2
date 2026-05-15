@@ -19,8 +19,26 @@ html, body {
   font-family: 'Segoe UI', system-ui, sans-serif;
   font-size: 14px;
   color: var(--text);
-  background: radial-gradient(ellipse at 50% 0%, #1a0040 0%, var(--bg) 70%);
+  background: #06000f;
   min-height: 100vh;
+}
+
+#starfield {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+#fx-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 700;
+  pointer-events: none;
 }
 
 .hidden { display: none !important; }
@@ -88,12 +106,21 @@ html, body {
 }
 
 /* ─── Main / Gather ─────────────────────────────────────────────────────────── */
-main { max-width: 900px; margin: 0 auto; padding: 32px 20px 60px; }
+main { max-width: 900px; margin: 0 auto; padding: 32px 20px 60px; position: relative; z-index: 2; }
 
 #gather-area {
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 24px;
   margin-bottom: 40px;
+}
+
+#particle-monitor {
+  background: rgba(0, 0, 10, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  display: block;
 }
 
 #btn-gather {
