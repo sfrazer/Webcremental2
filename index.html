@@ -27,6 +27,12 @@
       <span class="hud-amount" id="hud-solar-amount">0</span>
       <span class="hud-rate" id="hud-solar-rate"></span>
     </div>
+    <div class="hud-resource hidden" id="hud-prestige">
+      <span class="hud-icon">🔮</span>
+      <span class="hud-label">Cosmic Shards</span>
+      <span class="hud-amount" id="hud-prestige-shards">0</span>
+      <span class="hud-rate" id="hud-prestige-mult"></span>
+    </div>
     <div id="hud-actions">
       <button id="btn-research">Research</button>
       <button id="btn-achievements">Achievements</button>
@@ -148,6 +154,36 @@
     <div id="achievements-grid"></div>
   </div>
 
+  <!-- Prestige Overlay -->
+  <div id="prestige-overlay" class="overlay hidden">
+    <div class="overlay-header">
+      <h2>Cosmic Rebirth</h2>
+      <button id="btn-close-prestige" class="btn-close">✕</button>
+    </div>
+    <div id="prestige-content">
+      <div class="prestige-stat">
+        <span class="prestige-label">Current Cosmic Shards</span>
+        <span class="prestige-value" id="prestige-current-shards">0</span>
+      </div>
+      <div class="prestige-stat">
+        <span class="prestige-label">Shards to Gain</span>
+        <span class="prestige-value prestige-gain" id="prestige-gain">+0</span>
+      </div>
+      <div class="prestige-stat">
+        <span class="prestige-label">New Total Shards</span>
+        <span class="prestige-value" id="prestige-new-total">0</span>
+      </div>
+      <div class="prestige-stat">
+        <span class="prestige-label">Resulting Multiplier</span>
+        <span class="prestige-value prestige-mult" id="prestige-new-mult">×1.00</span>
+      </div>
+      <p class="prestige-warning">Rebirth resets resources, upgrades, unlocks, and research. Achievements and Cosmic Shards are permanent.</p>
+      <button id="btn-confirm-prestige" class="btn-prestige-confirm">Confirm Rebirth</button>
+      <h3 class="prestige-shop-title">Permanent Upgrades</h3>
+      <div id="prestige-upgrades-grid"></div>
+    </div>
+  </div>
+
   <!-- Bouncing Orb -->
   <div id="orb" class="hidden">✦</div>
 
@@ -158,6 +194,7 @@
   <div id="float-container"></div>
 
   <footer>
+    <button id="btn-prestige" class="hidden">Rebirth ✦</button>
     <button id="btn-reset">Reset Universe</button>
   </footer>
 

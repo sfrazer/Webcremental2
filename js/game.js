@@ -16,7 +16,9 @@ const ACHIEVEMENT_DEFINITIONS = [
   { id: 'research_5',        icon: '🔬', name: 'Scholar',          desc: 'Unlock 5 research nodes.',                 check: (s, u, r) => r.length >= 5 },
   { id: 'research_all',      icon: '🔬', name: 'Omniscient',       desc: 'Unlock all research nodes.',               check: (s, u, r) => r.length >= RESEARCH_NODES.length },
   { id: 'spend_stardust_1k', icon: '💸', name: 'Investor',         desc: 'Spend 1,000 Stardust on upgrades.',        check: s => s.spentStardust >= 1000 },
-  { id: 'orb_clicked',       icon: '🔮', name: 'Orb Touched',      desc: 'Click the bouncing celestial orb.',        check: s => s.totalOrbClicks >= 1 }
+  { id: 'orb_clicked',       icon: '🔮', name: 'Orb Touched',      desc: 'Click the bouncing celestial orb.',        check: s => s.totalOrbClicks >= 1 },
+  { id: 'first_prestige',    icon: '⭐', name: 'Reborn',           desc: 'Perform your first Cosmic Rebirth.',       check: (s,u,r,p) => p.count >= 1 },
+  { id: 'prestige_10shards', icon: '⭐', name: 'Shard Seeker',     desc: 'Accumulate 10 Cosmic Shards.',             check: (s,u,r,p) => p.shards >= 10 }
 ];
 
 // ─── Formatting ──────────────────────────────────────────────────────────────
@@ -75,8 +77,9 @@ function checkAchievements() {
   const s = gameState.stats;
   const u = gameState.unlocks;
   const r = gameState.research;
+  const p = gameState.prestige;
   for (const def of ACHIEVEMENT_DEFINITIONS) {
-    if (!gameState.achievements.includes(def.id) && def.check(s, u, r)) {
+    if (!gameState.achievements.includes(def.id) && def.check(s, u, r, p)) {
       gameState.achievements.push(def.id);
       showToast(def.icon + ' ' + def.name, def.desc);
     }
@@ -94,6 +97,34 @@ function renderAchievements() {
       <div class="ach-icon">${def.icon}</div>
       <div class="ach-name">${def.name}</div>
       <div class="ach-desc">${unlocked ? def.desc : '???'}</div>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+function renderPrestigeOverlay() {
+  const shards   = gameState.prestige.shards;
+  const gain     = getPrestigeShardGain();
+  const newTotal = shards + gain;
+  document.getElementById('prestige-current-shards').textContent = shards;
+  document.getElementById('prestige-gain').textContent = '+' + gain;
+  document.getElementById('prestige-new-total').textContent = newTotal;
+  document.getElementById('prestige-new-mult').textContent = '×' + (1 + newTotal * 0.10).toFixed(2);
+  document.getElementById('btn-confirm-prestige').disabled = gain < 1;
+
+  const grid = document.getElementById('prestige-upgrades-grid');
+  grid.innerHTML = '';
+  for (const upg of PRESTIGE_UPGRADES) {
+    const owned  = gameState.prestige.upgrades.includes(upg.id);
+    const canBuy = !owned && shards >= upg.cost;
+    const card   = document.createElement('div');
+    card.className = 'prestige-upgrade-card' + (owned ? ' owned' : '');
+    card.innerHTML = `
+      <div class="pu-name">${upg.name}</div>
+      <div class="pu-desc">${upg.desc}</div>
+      <button class="pu-buy" data-upg="${upg.id}" ${owned || !canBuy ? 'disabled' : ''}>
+        ${owned ? 'Owned' : upg.cost + ' ✦'}
+      </button>
     `;
     grid.appendChild(card);
   }
@@ -228,6 +259,18 @@ function updateHUD() {
 
   const hasAffordable = RESEARCH_NODES.some(n => getNodeState(n.id) === 'unlockable');
   document.getElementById('btn-research').classList.toggle('has-affordable', hasAffordable);
+
+  const shards = gameState.prestige.shards;
+  if (shards > 0) {
+    document.getElementById('hud-prestige').classList.remove('hidden');
+    document.getElementById('hud-prestige-shards').textContent = shards;
+    document.getElementById('hud-prestige-mult').textContent = '×' + getPrestigeMultiplier().toFixed(2);
+  }
+  const btnPrestige = document.getElementById('btn-prestige');
+  if (getPrestigeShardGain() >= 1) {
+    btnPrestige.classList.remove('hidden');
+    btnPrestige.classList.add('can-prestige');
+  }
 }
 
 const UPGRADE_LABELS = {
@@ -242,15 +285,21 @@ function updateShop() {
   const btnLunar = document.getElementById('btn-unlock-lunar');
   const btnSolar = document.getElementById('btn-unlock-solar');
 
+  const lunarThreshold = getLunarUnlockThreshold();
+  const solarThreshold = getSolarUnlockThreshold();
+
+  btnLunar.querySelector('.btn-sub').textContent = fmt(lunarThreshold) + ' Stardust';
+  btnSolar.querySelector('.btn-sub').textContent = fmt(solarThreshold) + ' Lunar Essence';
+
   if (!gameState.unlocks.lunarEssence) {
-    if (gameState.resources.stardust >= 1000) btnLunar.classList.remove('hidden');
+    if (gameState.resources.stardust >= lunarThreshold) btnLunar.classList.remove('hidden');
     else btnLunar.classList.add('hidden');
   } else {
     btnLunar.classList.add('hidden');
   }
 
   if (gameState.unlocks.lunarEssence && !gameState.unlocks.solarFlare) {
-    if (gameState.resources.lunarEssence >= 1000) btnSolar.classList.remove('hidden');
+    if (gameState.resources.lunarEssence >= solarThreshold) btnSolar.classList.remove('hidden');
     else btnSolar.classList.add('hidden');
   } else {
     btnSolar.classList.add('hidden');
@@ -282,8 +331,8 @@ function updateShop() {
   }
 
   // Disable unlock buttons if can't afford
-  btnLunar.disabled = gameState.resources.stardust < 1000;
-  btnSolar.disabled = gameState.resources.lunarEssence < 1000;
+  btnLunar.disabled = gameState.resources.stardust < lunarThreshold;
+  btnSolar.disabled = gameState.resources.lunarEssence < solarThreshold;
 }
 
 function updateUI() {
@@ -391,6 +440,7 @@ function bindEvents() {
     const overlay = document.getElementById('research-overlay');
     const isOpen = !overlay.classList.contains('hidden');
     document.getElementById('achievements-overlay').classList.add('hidden');
+    document.getElementById('prestige-overlay').classList.add('hidden');
     if (isOpen) {
       overlay.classList.add('hidden');
       hideTooltip();
@@ -438,6 +488,7 @@ function bindEvents() {
     const overlay = document.getElementById('achievements-overlay');
     const isOpen = !overlay.classList.contains('hidden');
     document.getElementById('research-overlay').classList.add('hidden');
+    document.getElementById('prestige-overlay').classList.add('hidden');
     hideTooltip();
     if (isOpen) {
       overlay.classList.add('hidden');
@@ -454,6 +505,39 @@ function bindEvents() {
   // Orb
   document.getElementById('orb').addEventListener('click', onOrbClick);
 
+  // Prestige overlay
+  document.getElementById('btn-prestige').addEventListener('click', () => {
+    document.getElementById('research-overlay').classList.add('hidden');
+    document.getElementById('achievements-overlay').classList.add('hidden');
+    hideTooltip();
+    const overlay = document.getElementById('prestige-overlay');
+    overlay.style.top = document.getElementById('hud').offsetHeight + 'px';
+    overlay.classList.remove('hidden');
+    renderPrestigeOverlay();
+  });
+  document.getElementById('btn-close-prestige').addEventListener('click', () => {
+    document.getElementById('prestige-overlay').classList.add('hidden');
+  });
+  document.getElementById('btn-confirm-prestige').addEventListener('click', () => {
+    if (!prestigeReset()) return;
+    document.getElementById('prestige-overlay').classList.add('hidden');
+    researchRendered = false;
+    ['research-overlay', 'achievements-overlay', 'shop-lunar', 'shop-solar',
+     'hud-lunar', 'hud-solar', 'orb'].forEach(id =>
+      document.getElementById(id).classList.add('hidden'));
+    if (_orbRafId) cancelAnimationFrame(_orbRafId);
+    stopLoop();
+    startLoop();
+    updateUI();
+    showToast('⭐ Cosmic Rebirth', 'You have transcended! Cosmic Shards empower your new existence.');
+    setTimeout(spawnOrb, 60000);
+  });
+  document.getElementById('prestige-upgrades-grid').addEventListener('click', e => {
+    const btn = e.target.closest('.pu-buy');
+    if (!btn || btn.disabled) return;
+    if (tryBuyPrestigeUpgrade(btn.dataset.upg)) renderPrestigeOverlay();
+  });
+
   // Reset
   document.getElementById('btn-reset').addEventListener('click', () => {
     if (confirm('Reset the universe? All progress will be lost.')) {
@@ -462,10 +546,13 @@ function bindEvents() {
       researchRendered = false;
       document.getElementById('research-overlay').classList.add('hidden');
       document.getElementById('achievements-overlay').classList.add('hidden');
+      document.getElementById('prestige-overlay').classList.add('hidden');
       document.getElementById('shop-lunar').classList.add('hidden');
       document.getElementById('shop-solar').classList.add('hidden');
       document.getElementById('hud-lunar').classList.add('hidden');
       document.getElementById('hud-solar').classList.add('hidden');
+      document.getElementById('hud-prestige').classList.add('hidden');
+      document.getElementById('btn-prestige').classList.add('hidden');
       document.getElementById('orb').classList.add('hidden');
       if (_orbRafId) cancelAnimationFrame(_orbRafId);
       startLoop();
@@ -488,6 +575,7 @@ function init() {
   loadGame();
   gameState._cascadeFiredThisTick = false;
   gameState.stats.totalOrbClicks = gameState.stats.totalOrbClicks || 0;
+  applyPrestigeStartingBonuses();
   bindEvents();
   startLoop();
   updateUI();
@@ -499,6 +587,10 @@ function init() {
   if (gameState.unlocks.solarFlare) {
     document.getElementById('shop-solar').classList.remove('hidden');
     document.getElementById('hud-solar').classList.remove('hidden');
+  }
+  // Restore prestige UI for loaded saves
+  if (gameState.prestige.shards > 0 || getPrestigeShardGain() >= 1) {
+    document.getElementById('btn-prestige').classList.remove('hidden');
   }
   setTimeout(spawnOrb, 60000);
   requestAnimationFrame(uiLoop);

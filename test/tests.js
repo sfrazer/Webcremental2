@@ -193,6 +193,85 @@ assert('loadGame restores upgrades', gameState.upgrades.stardust.telescope === 5
 assert('loadGame restores research', gameState.research.includes('root'), gameState.research);
 assert('loadGame restores achievements', gameState.achievements.includes('first_stardust'));
 
+// ─── state.js / engine.js — prestige ────────────────────────────────────────
+
+freshState();
+assert('getPrestigeShardGain() = 0 on fresh state', getPrestigeShardGain() === 0, getPrestigeShardGain());
+
+freshState();
+gameState.stats.totalStardust = 5000;
+assert('getPrestigeShardGain() = 1 at 5000 totalStardust', getPrestigeShardGain() === 1, getPrestigeShardGain());
+
+freshState();
+gameState.stats.totalStardust = 20000;
+assert('getPrestigeShardGain() = 2 at 20000 totalStardust', getPrestigeShardGain() === 2, getPrestigeShardGain());
+
+freshState();
+gameState.stats.totalLunarEssence = 500;
+assert('getPrestigeShardGain() = 1 from lunarEssence alone (500)', getPrestigeShardGain() === 1, getPrestigeShardGain());
+
+freshState();
+gameState.stats.totalSolarFlare = 50;
+assert('getPrestigeShardGain() = 1 from solarFlare alone (50)', getPrestigeShardGain() === 1, getPrestigeShardGain());
+
+freshState();
+assertClose('getPrestigeMultiplier() = 1.0 on fresh state', getPrestigeMultiplier(), 1.0);
+
+freshState();
+gameState.prestige.shards = 3;
+assertClose('getPrestigeMultiplier() = 1.3 with 3 shards', getPrestigeMultiplier(), 1.3);
+
+freshState();
+const noPrestige = prestigeReset();
+assert('prestigeReset() returns false when gain < 1', noPrestige === false, noPrestige);
+
+freshState();
+gameState.stats.totalStardust = 5000;
+gameState.upgrades.stardust.telescope = 2;
+gameState.research.push('root');
+gameState.achievements.push('first_stardust');
+const didPrestige = prestigeReset();
+assert('prestigeReset() returns true with sufficient totalStardust', didPrestige === true, didPrestige);
+assert('prestigeReset() awards 1 shard', gameState.prestige.shards === 1, gameState.prestige.shards);
+assert('prestigeReset() increments count', gameState.prestige.count === 1, gameState.prestige.count);
+assert('prestigeReset() resets resources', gameState.resources.stardust === 0, gameState.resources.stardust);
+assert('prestigeReset() resets upgrades', gameState.upgrades.stardust.telescope === 0, gameState.upgrades.stardust.telescope);
+assert('prestigeReset() resets research', gameState.research.length === 0, gameState.research.length);
+assert('prestigeReset() preserves achievements', gameState.achievements.includes('first_stardust'), gameState.achievements);
+
+freshState();
+gameState.upgrades.stardust.telescope = 2;
+gameState.prestige.shards = 3;
+const rPrestige = getProductionRates();
+assertClose('2 telescopes + 3 prestige shards → ×1.3 rate',
+  rPrestige.stardust, 2 * UPGRADE_BASE_RATES.telescope * 1.3);
+
+freshState();
+gameState.prestige.upgrades.push('quick_gather');
+assert('getClickAmount() = 3 with quick_gather prestige upgrade', getClickAmount() === 3, getClickAmount());
+
+freshState();
+gameState.prestige.upgrades.push('frugal_universe');
+assertClose('getUpgradeCost(telescope) ≈ 8 with frugal_universe', getUpgradeCost('telescope'), 8, 1);
+
+freshState();
+gameState.prestige.shards = 3;
+const boughtMoongate = tryBuyPrestigeUpgrade('moongate');
+assert('tryBuyPrestigeUpgrade(moongate) returns true with 3 shards', boughtMoongate === true, boughtMoongate);
+assert('shards deducted after buying moongate', gameState.prestige.shards === 0, gameState.prestige.shards);
+assert('moongate in prestige.upgrades', gameState.prestige.upgrades.includes('moongate'));
+assert('getLunarUnlockThreshold() = 750 with moongate', getLunarUnlockThreshold() === 750, getLunarUnlockThreshold());
+
+freshState();
+gameState.prestige.shards = 1;
+const notBought = tryBuyPrestigeUpgrade('sun_door');
+assert('tryBuyPrestigeUpgrade returns false when insufficient shards', notBought === false, notBought);
+
+freshState();
+gameState.prestige.upgrades.push('moongate');
+const dupBuy = tryBuyPrestigeUpgrade('moongate');
+assert('tryBuyPrestigeUpgrade returns false when already owned', dupBuy === false, dupBuy);
+
 // ─── Summary ─────────────────────────────────────────────────────────────────
 
 document.getElementById('summary').innerHTML =

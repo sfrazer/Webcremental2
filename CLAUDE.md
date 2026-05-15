@@ -15,8 +15,9 @@ js/research.js   — RESEARCH_NODES data + helper functions (getNodeState, canUn
 js/state.js      — gameState object + save()/load()/reset() via localStorage
 js/engine.js     — game logic: production loop (setInterval ~100ms), cost formulas, resource logic
 js/game.js       — main controller: DOM event listeners, UI updates, game loop trigger
-test.html        — unit test runner (open in browser; no framework)
-js/tests.js      — assertion suite for pure-logic functions (research.js, state.js, engine.js)
+test/test.html   — unit test runner (open in browser; no framework)
+test/tests.js    — assertion suite for pure-logic functions (research.js, state.js, engine.js)
+test/run-tests.mjs — headless Node.js test runner (uses jsdom; run with `node test/run-tests.mjs`)
 ```
 
 Script load order in `index.html`: `research.js` → `state.js` → `engine.js` → `game.js` (global scope, no ES modules).
@@ -38,6 +39,7 @@ Script load order in `index.html`: `research.js` → `state.js` → `engine.js` 
 - **Research Tree**: Full-screen overlay, node-and-line graph on a 1200×800 logical canvas. 22 nodes total: root → 3 branch gates → 9 sub-branches (3 per resource, each 2 nodes deep). Each sub-branch has a distinct effect type. See Research Tree section below.
 - **Bouncing Orb**: Periodic clickable orb; awards 10–50 of the highest unlocked resource on click. Respawns after 1–10 minutes. Does not spawn until 60s after game load.
 - **Achievements**: Tracked via stats (`totalStardust`, `totalLunarEssence`, `totalSolarFlare`, `spentStardust`, `spentLunarEssence`, `spentSolarFlare`, `totalClicks`). Toast notifications on unlock; dedicated modal gallery showing all achievements.
+- **Prestige / Cosmic Rebirth**: After accumulating significant resources, the player can Rebirth to earn permanent **Cosmic Shards**. Shards multiply all production by `1 + shards × 0.10` and can be spent on 6 one-time permanent upgrades. Resources, upgrades, unlocks, research, and stats reset on rebirth; achievements and shards persist. "Reset Universe" wipes everything including shards.
 
 ## Research Tree
 
@@ -91,9 +93,10 @@ Script load order in `index.html`: `research.js` → `state.js` → `engine.js` 
 3. Add `flat` research bonuses (additive)
 4. Scale by dt
 5. Roll Radiant Cascade (`crossResource` nodes)
-6. Apply deltas via `addResource()`
-7. Check unlock thresholds
-8. Check achievements
+6. Apply prestige multiplier (`getPrestigeMultiplier()`) to all three resource rates
+7. Apply deltas via `addResource()`
+8. Check unlock thresholds
+9. Check achievements
 
 Cost reduction stacks multiplicatively at buy-time: both Frugal Harvesting nodes → ×0.85 × ×0.70 = ×0.595.
 
@@ -115,9 +118,12 @@ Cost reduction stacks multiplicatively at buy-time: both Frugal Harvesting nodes
     "totalClicks": 0
   },
   "achievements": [],
-  "research": []
+  "research": [],
+  "prestige": { "shards": 0, "count": 0, "upgrades": [] }
 }
 ```
+
+`prestige.upgrades` is an array of purchased upgrade IDs. Old saves without this key get `{shards:0, count:0, upgrades:[]}` via `deepMerge` — no migration needed.
 
 ## UI Conventions
 
@@ -129,6 +135,8 @@ Cost reduction stacks multiplicatively at buy-time: both Frugal Harvesting nodes
 - The Research button gains `.has-affordable` class (gold border + pulse animation) when any unowned research node is affordable (`getNodeState() === 'unlockable'`). This is checked each UI frame in `updateHUD()`.
 - Research and Achievements overlays open below the HUD (`overlay.style.top = hud.offsetHeight + 'px'`), keeping the HUD visible.
 - Clicking Research or Achievements toggles their overlay closed if already open; clicking one while the other is open switches to the new one.
+- The "Rebirth ✦" button in the footer is hidden until `getPrestigeShardGain() >= 1`; it gains `.can-prestige` (purple glow animation) when visible. Clicking opens the Prestige overlay, which closes Research/Achievements.
+- Unlock button cost text is dynamic — `updateShop()` calls `getLunarUnlockThreshold()` / `getSolarUnlockThreshold()` each frame so the display reflects `moongate`/`sun_door` prestige upgrades.
 
 ## Bouncing Orb
 
@@ -136,6 +144,45 @@ Cost reduction stacks multiplicatively at buy-time: both Frugal Harvesting nodes
 - Velocity: random `0.1–0.5 px/frame` on each axis, direction randomized.
 - On click: awards `10 + Math.random() * 40` of the highest unlocked resource (rounded), shows floating text.
 - Respawns after 1–10 minutes via `setTimeout`.
+
+## Prestige System
+
+### Shard formula
+```js
+Math.floor(Math.sqrt(totalStardust / 5000) + totalLunarEssence / 500 + totalSolarFlare / 50)
+```
+Minimum 1 shard required to allow rebirth. Button is hidden until threshold is met.
+
+### Passive multiplier
+```js
+1 + gameState.prestige.shards * 0.10   // e.g. 3 shards → ×1.30
+```
+Applied as final step in `getProductionRates()`. When shards = 0, multiplier = 1.0 (no-op).
+
+### Prestige upgrades (`PRESTIGE_UPGRADES` in `engine.js`)
+| ID | Name | Cost | Effect |
+|---|---|---|---|
+| `starter_stardust` | Stardust Cache | 2 | Begin each run with 500 Stardust |
+| `quick_gather` | Practiced Hands | 2 | +2 stardust per gather click |
+| `ancient_memory` | Ancient Memory | 3 | Begin each run with root research node unlocked |
+| `moongate` | Moongate | 3 | Lunar Essence unlocks at 750 Stardust (down from 1,000) |
+| `sun_door` | Sun Door | 4 | Solar Flare unlocks at 750 Lunar Essence (down from 1,000) |
+| `frugal_universe` | Frugal Universe | 5 | All upgrade costs permanently ×0.80 |
+
+### What resets / what persists
+| Field | On Prestige | On Reset Universe |
+|---|---|---|
+| resources, upgrades, unlocks, stats, research | wiped | wiped |
+| achievements | kept | wiped |
+| prestige.shards, prestige.count, prestige.upgrades | kept | wiped |
+
+### Key functions
+- `getPrestigeShardGain()` — computes shards from current run stats (in `state.js`)
+- `getPrestigeMultiplier()` — returns `1 + shards * 0.10` (in `state.js`)
+- `applyPrestigeStartingBonuses()` — applies `starter_stardust` / `ancient_memory` after reset or load (in `state.js`)
+- `prestigeReset()` — awards shards, selectively wipes run state, calls bonuses + save (in `state.js`)
+- `getLunarUnlockThreshold()` / `getSolarUnlockThreshold()` — return 750 or 1000 depending on upgrades (in `engine.js`)
+- `tryBuyPrestigeUpgrade(id)` — deducts shards, pushes ID to upgrades array, saves (in `engine.js`)
 
 ## State Implementation Notes
 
