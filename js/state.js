@@ -17,7 +17,8 @@ const DEFAULT_STATE = {
     totalClicks: 0
   },
   achievements: [],
-  research: []
+  research: [],
+  prestige: { shards: 0, count: 0, upgrades: [] }
 };
 
 let gameState = deepClone(DEFAULT_STATE);
@@ -46,7 +47,8 @@ function saveGame() {
     unlocks:      gameState.unlocks,
     stats:        gameState.stats,
     achievements: gameState.achievements,
-    research:     gameState.research
+    research:     gameState.research,
+    prestige:     gameState.prestige
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(data));
 }
@@ -93,4 +95,43 @@ function unlockResearch(nodeId) {
   if (!gameState.research.includes(nodeId)) {
     gameState.research.push(nodeId);
   }
+}
+
+function getPrestigeShardGain() {
+  const s = gameState.stats;
+  return Math.floor(
+    Math.sqrt(s.totalStardust / 5000) +
+    s.totalLunarEssence / 500 +
+    s.totalSolarFlare / 50
+  );
+}
+
+function getPrestigeMultiplier() {
+  return 1 + gameState.prestige.shards * 0.10;
+}
+
+function applyPrestigeStartingBonuses() {
+  const pu = gameState.prestige.upgrades;
+  if (pu.includes('starter_stardust') && gameState.resources.stardust < 500)
+    gameState.resources.stardust = 500;
+  if (pu.includes('ancient_memory') && !gameState.research.includes('root'))
+    gameState.research.push('root');
+}
+
+function prestigeReset() {
+  const gain = getPrestigeShardGain();
+  if (gain < 1) return false;
+  gameState.prestige.shards += gain;
+  gameState.prestige.count++;
+  const fresh = deepClone(DEFAULT_STATE);
+  gameState.resources = fresh.resources;
+  gameState.upgrades  = fresh.upgrades;
+  gameState.unlocks   = fresh.unlocks;
+  gameState.stats     = fresh.stats;
+  gameState.research  = fresh.research;
+  gameState._cascadeFiredThisTick = false;
+  gameState._pendingUnlockShow    = {};
+  applyPrestigeStartingBonuses();
+  saveGame();
+  return true;
 }

@@ -15,8 +15,9 @@ js/research.js   — RESEARCH_NODES data + helper functions (getNodeState, canUn
 js/state.js      — gameState object + save()/load()/reset() via localStorage
 js/engine.js     — game logic: production loop (setInterval ~100ms), cost formulas, resource logic
 js/game.js       — main controller: DOM event listeners, UI updates, game loop trigger
-test.html        — unit test runner (open in browser; no framework)
-js/tests.js      — assertion suite for pure-logic functions (research.js, state.js, engine.js)
+test/test.html   — unit test runner (open in browser; no framework)
+test/tests.js    — assertion suite for pure-logic functions (research.js, state.js, engine.js)
+test/run-tests.mjs — headless Node.js test runner (uses jsdom; run with `node test/run-tests.mjs`)
 ```
 
 Script load order in `index.html`: `research.js` → `state.js` → `engine.js` → `game.js` (global scope, no ES modules).

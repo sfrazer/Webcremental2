@@ -1,5 +1,14 @@
 'use strict';
 
+const PRESTIGE_UPGRADES = [
+  { id: 'starter_stardust', name: 'Stardust Cache',  cost: 2, desc: 'Begin each run with 500 Stardust.' },
+  { id: 'quick_gather',     name: 'Practiced Hands', cost: 2, desc: '+2 stardust per click, permanently.' },
+  { id: 'ancient_memory',   name: 'Ancient Memory',  cost: 3, desc: 'Begin each run with Cosmic Insight already researched.' },
+  { id: 'moongate',         name: 'Moongate',        cost: 3, desc: 'Lunar Essence unlocks at 750 Stardust instead of 1,000.' },
+  { id: 'sun_door',         name: 'Sun Door',        cost: 4, desc: 'Solar Flare unlocks at 750 Lunar Essence instead of 1,000.' },
+  { id: 'frugal_universe',  name: 'Frugal Universe', cost: 5, desc: 'All upgrade costs permanently ×0.80.' },
+];
+
 const UPGRADE_BASE_RATES = {
   telescope: 1, collector: 5, siphon: 10,
   well:      1, condenser: 5, alchemist: 10,
@@ -26,6 +35,14 @@ const UPGRADE_GROUP = {
 
 let _loopId = null;
 
+function getLunarUnlockThreshold() {
+  return gameState.prestige.upgrades.includes('moongate') ? 750 : 1000;
+}
+
+function getSolarUnlockThreshold() {
+  return gameState.prestige.upgrades.includes('sun_door') ? 750 : 1000;
+}
+
 function getCostReductionMultiplier(group) {
   const effects = getResearchEffects('costReduction').filter(e => e.target === group);
   return effects.reduce((acc, e) => acc * e.value, 1.0);
@@ -39,12 +56,14 @@ function getUpgradeCost(upgradeName) {
     return gameState.upgrades[group][upgradeName];
   })();
   const reduction = getCostReductionMultiplier(UPGRADE_GROUP[upgradeName]);
-  return Math.ceil(base * Math.pow(1.15, owned) * reduction);
+  const prestigeDiscount = gameState.prestige.upgrades.includes('frugal_universe') ? 0.8 : 1.0;
+  return Math.ceil(base * Math.pow(1.15, owned) * reduction * prestigeDiscount);
 }
 
 function getClickAmount() {
   const bonuses = getResearchEffects('clickBonus').reduce((sum, e) => sum + e.value, 0);
-  return 1 + bonuses;
+  const prestigeBonus = gameState.prestige.upgrades.includes('quick_gather') ? 2 : 0;
+  return 1 + bonuses + prestigeBonus;
 }
 
 function getProductionRates() {
@@ -89,10 +108,11 @@ function getProductionRates() {
     .filter(e => e.target === 'stardust')
     .reduce((sum, e) => sum + e.value, 0);
 
+  const m = getPrestigeMultiplier();
   return {
-    stardust:     rawStardust + stardustFlat,
-    lunarEssence: rawLunar,
-    solarFlare:   rawSolar
+    stardust:     (rawStardust + stardustFlat) * m,
+    lunarEssence: rawLunar * m,
+    solarFlare:   rawSolar * m
   };
 }
 
@@ -118,10 +138,10 @@ function processTick(dt) {
   if (solarFlareGain   > 0) addResource('solarFlare',   solarFlareGain);
 
   // Unlock thresholds
-  if (!gameState.unlocks.lunarEssence && gameState.resources.stardust >= 1000) {
+  if (!gameState.unlocks.lunarEssence && gameState.resources.stardust >= getLunarUnlockThreshold()) {
     _showUnlockButton('lunarEssence');
   }
-  if (gameState.unlocks.lunarEssence && !gameState.unlocks.solarFlare && gameState.resources.lunarEssence >= 1000) {
+  if (gameState.unlocks.lunarEssence && !gameState.unlocks.solarFlare && gameState.resources.lunarEssence >= getSolarUnlockThreshold()) {
     _showUnlockButton('solarFlare');
   }
 }
@@ -143,7 +163,7 @@ function tryBuyUpgrade(upgradeName) {
 }
 
 function tryUnlockResource(resourceName) {
-  const costs = { lunarEssence: 1000, solarFlare: 1000 };
+  const costs = { lunarEssence: getLunarUnlockThreshold(), solarFlare: getSolarUnlockThreshold() };
   const sources = { lunarEssence: 'stardust', solarFlare: 'lunarEssence' };
   const cost = costs[resourceName];
   const source = sources[resourceName];
@@ -157,6 +177,16 @@ function tryUnlockResearchNode(nodeId) {
   const node = RESEARCH_NODE_MAP[nodeId];
   if (!spendResource(node.cost.resource, node.cost.amount)) return false;
   unlockResearch(nodeId);
+  return true;
+}
+
+function tryBuyPrestigeUpgrade(id) {
+  if (gameState.prestige.upgrades.includes(id)) return false;
+  const def = PRESTIGE_UPGRADES.find(u => u.id === id);
+  if (!def || gameState.prestige.shards < def.cost) return false;
+  gameState.prestige.shards -= def.cost;
+  gameState.prestige.upgrades.push(id);
+  saveGame();
   return true;
 }
 

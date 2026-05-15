@@ -500,3 +500,126 @@ footer {
   color: #e74c3c;
   border-color: #e74c3c;
 }
+
+/* ─── Prestige ──────────────────────────────────────────────────────────────── */
+#hud-prestige .hud-amount { color: var(--purple); }
+#hud-prestige .hud-rate   { color: var(--purple); opacity: 0.75; }
+
+#btn-prestige {
+  padding: 6px 16px;
+  background: none;
+  border: 1px solid rgba(155,89,182,0.5);
+  border-radius: 6px;
+  color: rgba(155,89,182,0.9);
+  cursor: pointer;
+  font-size: 12px;
+  margin-right: auto;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+#btn-prestige:hover {
+  background: rgba(155,89,182,0.15);
+  border-color: #9b59b6;
+}
+#btn-prestige.can-prestige {
+  animation: pulse-glow-prestige 1.8s ease-in-out infinite;
+}
+@keyframes pulse-glow-prestige {
+  0%,100% { box-shadow: 0 0 4px 1px rgba(155,89,182,0.2); }
+  50%     { box-shadow: 0 0 12px 4px rgba(155,89,182,0.5); }
+}
+
+#prestige-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 24px;
+  max-width: 480px;
+  margin: 0 auto;
+  overflow-y: auto;
+}
+.prestige-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.prestige-label { color: var(--dim); font-size: 13px; }
+.prestige-value { font-size: 20px; font-weight: 700; color: var(--text); }
+.prestige-gain  { color: var(--purple); }
+.prestige-mult  { color: var(--gold); }
+.prestige-warning {
+  font-size: 12px;
+  color: rgba(231,76,60,0.75);
+  text-align: center;
+  line-height: 1.6;
+  padding: 8px 12px;
+  border: 1px solid rgba(231,76,60,0.25);
+  border-radius: 6px;
+  width: 100%;
+}
+.btn-prestige-confirm {
+  padding: 12px 36px;
+  background: rgba(155,89,182,0.15);
+  border: 1px solid rgba(155,89,182,0.6);
+  border-radius: 8px;
+  color: var(--purple);
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.btn-prestige-confirm:hover {
+  background: rgba(155,89,182,0.28);
+  box-shadow: 0 0 18px rgba(155,89,182,0.4);
+}
+.btn-prestige-confirm:disabled { opacity: 0.4; cursor: default; }
+
+.prestige-shop-title {
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  margin: 8px 0 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+#prestige-upgrades-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+.prestige-upgrade-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.prestige-upgrade-card.owned {
+  border-color: rgba(155,89,182,0.4);
+  background: rgba(155,89,182,0.07);
+}
+.pu-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.pu-desc { font-size: 11px; color: var(--dim); flex: 1; }
+.pu-buy {
+  margin-top: 4px;
+  padding: 5px 10px;
+  background: none;
+  border: 1px solid rgba(155,89,182,0.5);
+  border-radius: 5px;
+  color: var(--purple);
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+.pu-buy:hover:not(:disabled) { background: rgba(155,89,182,0.15); }
+.pu-buy:disabled { opacity: 0.4; cursor: default; }
