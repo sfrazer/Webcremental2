@@ -101,8 +101,8 @@ function getPrestigeShardGain() {
   const s = gameState.stats;
   return Math.floor(
     Math.sqrt(s.totalStardust / 5000) +
-    s.totalLunarEssence / 500 +
-    s.totalSolarFlare / 50
+    s.totalLunarEssence / 1000 +
+    s.totalSolarFlare / 500
   );
 }
 
