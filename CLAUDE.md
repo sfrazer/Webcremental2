@@ -22,6 +22,24 @@ test/run-tests.mjs — headless Node.js test runner (uses jsdom; run with `node 
 
 Script load order in `index.html`: `research.js` → `state.js` → `engine.js` → `game.js` (global scope, no ES modules).
 
+## Naming Conventions
+
+- `get*` — pure read, no side effects (e.g. `getUpgradeCost`, `getProductionRates`, `getNodeState`)
+- `try*` — mutation that can fail; returns `true` on success, `false` on failure (e.g. `tryBuyUpgrade`, `tryUnlockResearchNode`, `tryBuyPrestigeUpgrade`)
+- `*Reset` — wipes a significant chunk of state (e.g. `prestigeReset`, `resetGame`)
+- `add*` / `spend*` — unconditional resource mutations; `spend*` also updates stat tracking
+- `update*` — DOM/UI refresh functions in `game.js`; no return value, side-effects only
+- `render*` — builds/rebuilds a UI section from scratch (e.g. `renderPrestigeOverlay`, `renderResearchTree`)
+- `_*` — internal/private to a file; not intended to be called from other files (e.g. `_showUnlockButton`)
+
+## Data Placement
+
+Static data arrays live in the file that primarily interacts with them:
+- `RESEARCH_NODES` / `RESEARCH_NODE_MAP` in `research.js` — consumed entirely by research helpers
+- `PRESTIGE_UPGRADES`, `UPGRADE_BASE_RATES`, `UPGRADE_BASE_COSTS`, `UPGRADE_RESOURCE`, `UPGRADE_GROUP` in `engine.js` — consumed by cost/production logic
+
+When adding new content (new upgrade tiers, new prestige upgrades, new research nodes), add the data to the same file as the functions that read it — not to a separate data file. This keeps the schema and logic together and avoids cross-file implicit coupling.
+
 ## Architecture
 
 **Research** (`js/research.js`) defines the static `RESEARCH_NODES` array and `RESEARCH_NODE_MAP` lookup. Must load first — engine and game both depend on it.
