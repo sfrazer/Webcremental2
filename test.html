@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Celestial Alchemist — Tests</title>
+  <style>
+    body { font-family: monospace; background: #06000f; color: #e0e0e0; padding: 24px; }
+    h1   { color: #ffd700; margin-bottom: 16px; }
+    #summary { margin-bottom: 16px; font-size: 16px; }
+    .pass { color: #2ecc71; }
+    .fail { color: #e74c3c; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { padding: 5px 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    th { color: #ffd700; }
+    .status { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Celestial Alchemist — Unit Tests</h1>
+  <div id="summary"></div>
+  <table>
+    <thead><tr><th>Status</th><th>Test</th><th>Detail</th></tr></thead>
+    <tbody id="results"></tbody>
+  </table>
+
+  <script src="js/research.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/tests.js"></script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Celestial Alchemist</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header id="hud">
+    <div class="hud-resource" id="hud-stardust">
+      <span class="hud-icon">✦</span>
+      <span class="hud-label">Stardust</span>
+      <span class="hud-amount" id="hud-stardust-amount">0</span>
+      <span class="hud-rate" id="hud-stardust-rate"></span>
+    </div>
+    <div class="hud-resource hidden" id="hud-lunar">
+      <span class="hud-icon">☽</span>
+      <span class="hud-label">Lunar Essence</span>
+      <span class="hud-amount" id="hud-lunar-amount">0</span>
+      <span class="hud-rate" id="hud-lunar-rate"></span>
+    </div>
+    <div class="hud-resource hidden" id="hud-solar">
+      <span class="hud-icon">☀</span>
+      <span class="hud-label">Solar Flare</span>
+      <span class="hud-amount" id="hud-solar-amount">0</span>
+      <span class="hud-rate" id="hud-solar-rate"></span>
+    </div>
+    <div id="hud-actions">
+      <button id="btn-research">Research</button>
+      <button id="btn-achievements">Achievements</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="gather-area">
+      <button id="btn-gather">
+        <span class="btn-label">Gather Stardust</span>
+        <span class="btn-sub" id="gather-amount">+1</span>
+      </button>
+    </div>
+
+    <section id="shop">
+
+      <div id="shop-stardust" class="shop-section">
+        <div class="shop-header">
+          <h2>Stardust Lab</h2>
+          <span class="shop-rate" id="shop-stardust-rate"></span>
+        </div>
+        <div class="shop-buttons">
+          <button class="btn-buy" data-upgrade="telescope">
+            <span class="btn-label">Telescope</span>
+            <span class="btn-sub" id="cost-telescope">10 Stardust</span>
+            <span class="btn-count" id="count-telescope">0</span>
+          </button>
+          <button class="btn-buy" data-upgrade="collector">
+            <span class="btn-label">Collector</span>
+            <span class="btn-sub" id="cost-collector">100 Stardust</span>
+            <span class="btn-count" id="count-collector">0</span>
+          </button>
+          <button class="btn-buy" data-upgrade="siphon">
+            <span class="btn-label">Siphon</span>
+            <span class="btn-sub" id="cost-siphon">1,000 Stardust</span>
+            <span class="btn-count" id="count-siphon">0</span>
+          </button>
+          <button class="btn-unlock hidden" id="btn-unlock-lunar" data-unlock="lunarEssence">
+            <span class="btn-label">Unlock Lunar Essence</span>
+            <span class="btn-sub">1,000 Stardust</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="shop-lunar" class="shop-section hidden">
+        <div class="shop-header">
+          <h2>Lunar Sanctum</h2>
+          <span class="shop-rate" id="shop-lunar-rate"></span>
+        </div>
+        <div class="shop-buttons">
+          <button class="btn-buy" data-upgrade="well">
+            <span class="btn-label">Well</span>
+            <span class="btn-sub" id="cost-well">10 Lunar Essence</span>
+            <span class="btn-count" id="count-well">0</span>
+          </button>
+          <button class="btn-buy" data-upgrade="condenser">
+            <span class="btn-label">Condenser</span>
+            <span class="btn-sub" id="cost-condenser">100 Lunar Essence</span>
+            <span class="btn-count" id="count-condenser">0</span>
+          </button>
+          <button class="btn-buy" data-upgrade="alchemist">
+            <span class="btn-label">Alchemist</span>
+            <span class="btn-sub" id="cost-alchemist">1,000 Lunar Essence</span>
+            <span class="btn-count" id="count-alchemist">0</span>
+          </button>
+          <button class="btn-unlock hidden" id="btn-unlock-solar" data-unlock="solarFlare">
+            <span class="btn-label">Unlock Solar Flare</span>
+            <span class="btn-sub">1,000 Lunar Essence</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="shop-solar" class="shop-section hidden">
+        <h2 class="shop-header">
+          Solar Forge
+          <span class="shop-rate" id="shop-solar-rate"></span>
+        </h2>
+        <div class="shop-buttons">
+          <button class="btn-buy" data-upgrade="scoop">
+            <span class="btn-label">Scoop</span>
+            <span class="btn-sub" id="cost-scoop">10 Solar Flare</span>
+            <span class="btn-count" id="count-scoop">0</span>
+          </button>
+          <button class="btn-buy" data-upgrade="forge">
+            <span class="btn-label">Forge</span>
+            <span class="btn-sub" id="cost-forge">100 Solar Flare</span>
+            <span class="btn-count" id="count-forge">0</span>
+          </button>
+          <button class="btn-buy" data-upgrade="reactor">
+            <span class="btn-label">Reactor</span>
+            <span class="btn-sub" id="cost-reactor">1,000 Solar Flare</span>
+            <span class="btn-count" id="count-reactor">0</span>
+          </button>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Research Overlay -->
+  <div id="research-overlay" class="overlay hidden">
+    <div class="overlay-header">
+      <h2>Research</h2>
+      <button id="btn-close-research" class="btn-close">✕</button>
+    </div>
+    <div id="research-scroll">
+      <div id="research-canvas">
+        <svg id="research-lines" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Achievements Overlay -->
+  <div id="achievements-overlay" class="overlay hidden">
+    <div class="overlay-header">
+      <h2>Achievements</h2>
+      <button id="btn-close-achievements" class="btn-close">✕</button>
+    </div>
+    <div id="achievements-grid"></div>
+  </div>
+
+  <!-- Bouncing Orb -->
+  <div id="orb" class="hidden">✦</div>
+
+  <!-- Toast container -->
+  <div id="toast-container"></div>
+
+  <!-- Floating text container -->
+  <div id="float-container"></div>
+
+  <footer>
+    <button id="btn-reset">Reset Universe</button>
+  </footer>
+
+  <script src="js/research.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

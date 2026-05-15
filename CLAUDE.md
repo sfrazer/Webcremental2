@@ -6,31 +6,96 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Celestial Alchemist** — a web-based incremental game. Pure JavaScript, no backend, no build step. Browser `localStorage` for persistence (key: `celestial_alchemist_save`). Open `index.html` directly in a browser to run.
 
-## Planned File Structure
+## File Structure
 
 ```
 index.html       — UI shell: resource displays, Gather button, shop, reset button
 style.css        — Celestial theme: deep-space gradients, gold/silver/blue accents
+js/research.js   — RESEARCH_NODES data + helper functions (getNodeState, canUnlockNode, getResearchEffects)
 js/state.js      — gameState object + save()/load()/reset() via localStorage
 js/engine.js     — game logic: production loop (setInterval ~100ms), cost formulas, resource logic
 js/game.js       — main controller: DOM event listeners, UI updates, game loop trigger
+test.html        — unit test runner (open in browser; no framework)
+js/tests.js      — assertion suite for pure-logic functions (research.js, state.js, engine.js)
 ```
+
+Script load order in `index.html`: `research.js` → `state.js` → `engine.js` → `game.js` (global scope, no ES modules).
 
 ## Architecture
 
+**Research** (`js/research.js`) defines the static `RESEARCH_NODES` array and `RESEARCH_NODE_MAP` lookup. Must load first — engine and game both depend on it.
+
 **State** (`js/state.js`) owns the single `gameState` object. All mutations go through here. Persisted as JSON with version `"1.0.0"`.
 
-**Engine** (`js/engine.js`) is stateless logic — it reads from `gameState` and writes back via state functions. The production loop runs every 100ms. Upgrade cost formula: `baseCost × 1.15^amountOwned`.
+**Engine** (`js/engine.js`) is stateless logic — it reads from `gameState` and writes back via state functions. The production loop runs every 100ms. Upgrade cost formula: `baseCost × 1.15^amountOwned × costReductionMultiplier`.
 
 **Game** (`js/game.js`) is the controller — it wires engine and state to the DOM. It owns all `addEventListener` calls and the UI visibility toggling for locked resources.
 
 ## Core Mechanics
 
 - **Resources**: Stardust (click to gather) → Lunar Essence (unlocked at 1,000 Stardust) → Solar Flare (unlocked at 1,000 Lunar Essence). Lunar and Solar auto-generate at 1/s base once unlocked.
-- **Upgrades**: 3 tiers per resource (Stardust: Telescope/Collector/Siphon; Lunar: Well/Condenser/Alchemist; Solar: Scoop/Forge/Reactor). Each increases passive production rate.
-- **Research Tree**: Full-screen overlay, node-and-line graph. Center root → 3 paths (one per resource). Linear dependencies within each path. Bonuses are flat (additive) or multiplier (multiplicative) to production.
-- **Bouncing Orb**: Periodic clickable orb; awards 10–50 of the highest unlocked resource on click. Respawns after 1–10 minutes.
+- **Upgrades**: 3 tiers per resource (Stardust: Telescope/Collector/Siphon; Lunar: Well/Condenser/Alchemist; Solar: Scoop/Forge/Reactor). Base rates: 1/s, 5/s, 10/s per unit owned. Base costs: 10, 100, 1,000.
+- **Research Tree**: Full-screen overlay, node-and-line graph on a 1200×800 logical canvas. 22 nodes total: root → 3 branch gates → 9 sub-branches (3 per resource, each 2 nodes deep). Each sub-branch has a distinct effect type. See Research Tree section below.
+- **Bouncing Orb**: Periodic clickable orb; awards 10–50 of the highest unlocked resource on click. Respawns after 1–10 minutes. Does not spawn until 60s after game load.
 - **Achievements**: Tracked via stats (`totalStardust`, `totalLunarEssence`, `totalSolarFlare`, `spentStardust`, `spentLunarEssence`, `spentSolarFlare`, `totalClicks`). Toast notifications on unlock; dedicated modal gallery showing all achievements.
+
+## Research Tree
+
+### Node structure
+```js
+{
+  id, name, description,
+  branch,     // 'stardust' | 'lunar' | 'solar' | null
+  subBranch,  // string slug | null
+  position,   // 0 or 1 within sub-branch
+  requires,   // string[] of prerequisite node IDs
+  cost: { resource, amount },
+  effect: { type, target, value },
+  layout: { x, y }  // pixel coords in 1200×800 canvas
+}
+```
+
+### Effect types
+- `multiplier` — multiplicative to a resource or upgrade-group production rate (stacked multiplicatively)
+- `costReduction` — multiplier applied to upgrade purchase cost at buy-time (stacked multiplicatively)
+- `clickBonus` — flat additive to per-click gather amount
+- `flat` — additive to per-second production (applied after multipliers)
+- `crossResource` — probability-based burst per tick (Radiant Cascade only)
+
+### Sub-branches
+
+**Stardust branch** (gate cost: 2,000 stardust):
+| Sub-branch | Node I | Node II |
+|---|---|---|
+| Upgrade Mastery | ×1.5 stardust upgrade production (5k SD) | ×2.5 stardust upgrade production (25k SD) |
+| Frugal Harvesting | ×0.85 stardust upgrade costs (4k SD) | ×0.70 stardust upgrade costs (20k SD) |
+| Manual Momentum | +3 stardust/click (3k SD) | +8 stardust/click (15k SD) |
+
+**Lunar branch** (gate cost: 500 lunarEssence):
+| Sub-branch | Node I | Node II |
+|---|---|---|
+| Phase Amplification | ×1.5 lunar production (1.5k LE) | ×2.5 lunar production (8k LE) |
+| Lunar Economy | ×0.85 lunar upgrade costs (1.2k LE) | ×0.70 lunar upgrade costs (6k LE) |
+| Stellar Harmony | +2/s flat stardust (2k LE) | +6/s flat stardust (10k LE) |
+
+**Solar branch** (gate cost: 200 solarFlare):
+| Sub-branch | Node I | Node II |
+|---|---|---|
+| Solar Intensification | ×1.5 solar production (500 SF) | ×2.5 solar production (2.5k SF) |
+| Fusion Frugality | ×0.85 solar upgrade costs (400 SF) | ×0.70 solar upgrade costs (2k SF) |
+| Radiant Cascade | 5%/tick chance → pulse `solarRate×0.1` stardust (600 SF) | 12%/tick chance → pulse `solarRate×0.1` stardust (3k SF) |
+
+### Engine tick order (dt = 0.1s)
+1. Raw upgrade production (count × base rate)
+2. Apply `multiplier` research (multiplicative stack per group)
+3. Add `flat` research bonuses (additive)
+4. Scale by dt
+5. Roll Radiant Cascade (`crossResource` nodes)
+6. Apply deltas via `addResource()`
+7. Check unlock thresholds
+8. Check achievements
+
+Cost reduction stacks multiplicatively at buy-time: both Frugal Harvesting nodes → ×0.85 × ×0.70 = ×0.595.
 
 ## gameState Shape
 
@@ -58,5 +123,22 @@ js/game.js       — main controller: DOM event listeners, UI updates, game loop
 
 - Shop sections (Stardust Lab, Lunar Sanctum, Solar Forge) are hidden until their resource is unlocked.
 - Shop section headers show live passive production rates.
-- Buy/Unlock buttons use two-line format: label on line 1, cost on line 2.
+- Buy buttons use three-line format: label on line 1, cost on line 2, owned count on line 3 (`.btn-count`).
+- Unlock buttons sit at the far right of the upgrade button row (`margin-left: auto`), same row as the buy buttons.
 - "Reset Universe" button in footer requires confirmation before clearing state.
+- The Research button gains `.has-affordable` class (gold border + pulse animation) when any unowned research node is affordable (`getNodeState() === 'unlockable'`). This is checked each UI frame in `updateHUD()`.
+- Research and Achievements overlays open below the HUD (`overlay.style.top = hud.offsetHeight + 'px'`), keeping the HUD visible.
+- Clicking Research or Achievements toggles their overlay closed if already open; clicking one while the other is open switches to the new one.
+
+## Bouncing Orb
+
+- First spawn is deferred 60 seconds after `init()`.
+- Velocity: random `0.1–0.5 px/frame` on each axis, direction randomized.
+- On click: awards `10 + Math.random() * 40` of the highest unlocked resource (rounded), shows floating text.
+- Respawns after 1–10 minutes via `setTimeout`.
+
+## State Implementation Notes
+
+- `deepMerge(target, source)` in `state.js`: the `source` value **always wins** for scalar keys (no `=== undefined` guard). This ensures `loadGame()` correctly overwrites DEFAULT_STATE with saved values.
+- `saveGame()` explicitly lists serialized keys to exclude transient fields like `_cascadeFiredThisTick`.
+- `resetGame()` removes the localStorage entry and resets in-memory state to DEFAULT_STATE.
