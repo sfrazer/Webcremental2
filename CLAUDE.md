@@ -135,7 +135,9 @@ Cost reduction stacks multiplicatively at buy-time: both Frugal Harvesting nodes
 - The Research button gains `.has-affordable` class (gold border + pulse animation) when any unowned research node is affordable (`getNodeState() === 'unlockable'`). This is checked each UI frame in `updateHUD()`.
 - Research and Achievements overlays open below the HUD (`overlay.style.top = hud.offsetHeight + 'px'`), keeping the HUD visible.
 - Clicking Research or Achievements toggles their overlay closed if already open; clicking one while the other is open switches to the new one.
-- The "Rebirth ✦" button in the footer is hidden until `getPrestigeShardGain() >= 1`; it gains `.can-prestige` (purple glow animation) when visible. Clicking opens the Prestige overlay, which closes Research/Achievements.
+- The "Rebirth ✦" button in the footer is hidden until `getPrestigeShardGain() >= 1`; it gains `.can-prestige` (purple glow animation) when visible. Clicking toggles the Prestige overlay (opens or closes), closing Research/Achievements when opening.
+- The Prestige overlay re-renders on every `updateUI()` call while open, so shard gain preview and multiplier stay live.
+- The footer has `z-index: 900`, above all overlays (500), tooltips (600), floats (700), and toasts (800) — overlays never cover the footer.
 - Unlock button cost text is dynamic — `updateShop()` calls `getLunarUnlockThreshold()` / `getSolarUnlockThreshold()` each frame so the display reflects `moongate`/`sun_door` prestige upgrades.
 
 ## Bouncing Orb
@@ -149,7 +151,7 @@ Cost reduction stacks multiplicatively at buy-time: both Frugal Harvesting nodes
 
 ### Shard formula
 ```js
-Math.floor(Math.sqrt(totalStardust / 5000) + totalLunarEssence / 500 + totalSolarFlare / 50)
+Math.floor(Math.sqrt(totalStardust / 5000) + totalLunarEssence / 1000 + totalSolarFlare / 500)
 ```
 Minimum 1 shard required to allow rebirth. Button is hidden until threshold is met.
 
@@ -162,12 +164,12 @@ Applied as final step in `getProductionRates()`. When shards = 0, multiplier = 1
 ### Prestige upgrades (`PRESTIGE_UPGRADES` in `engine.js`)
 | ID | Name | Cost | Effect |
 |---|---|---|---|
-| `starter_stardust` | Stardust Cache | 2 | Begin each run with 500 Stardust |
-| `quick_gather` | Practiced Hands | 2 | +2 stardust per gather click |
-| `ancient_memory` | Ancient Memory | 3 | Begin each run with root research node unlocked |
-| `moongate` | Moongate | 3 | Lunar Essence unlocks at 750 Stardust (down from 1,000) |
-| `sun_door` | Sun Door | 4 | Solar Flare unlocks at 750 Lunar Essence (down from 1,000) |
-| `frugal_universe` | Frugal Universe | 5 | All upgrade costs permanently ×0.80 |
+| `starter_stardust` | Stardust Cache | 3 | Begin each run with 500 Stardust |
+| `quick_gather` | Practiced Hands | 3 | +2 stardust per gather click |
+| `ancient_memory` | Ancient Memory | 5 | Begin each run with root research node unlocked |
+| `moongate` | Moongate | 5 | Lunar Essence unlocks at 750 Stardust (down from 1,000) |
+| `sun_door` | Sun Door | 7 | Solar Flare unlocks at 750 Lunar Essence (down from 1,000) |
+| `frugal_universe` | Frugal Universe | 8 | All upgrade costs permanently ×0.80 |
 
 ### What resets / what persists
 | Field | On Prestige | On Reset Universe |
