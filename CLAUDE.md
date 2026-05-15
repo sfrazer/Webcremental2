@@ -154,8 +154,8 @@ Cost reduction stacks multiplicatively at buy-time: both Frugal Harvesting nodes
 - Research and Achievements overlays open below the HUD (`overlay.style.top = hud.offsetHeight + 'px'`), keeping the HUD visible.
 - Clicking Research or Achievements toggles their overlay closed if already open; clicking one while the other is open switches to the new one.
 - The "Rebirth ✦" button in the footer is hidden until `getPrestigeShardGain() >= 1`; it gains `.can-prestige` (purple glow animation) when visible. Clicking toggles the Prestige overlay (opens or closes), closing Research/Achievements when opening.
-- The Prestige overlay re-renders on every `updateUI()` call while open, so shard gain preview and multiplier stay live.
-- The footer has `z-index: 900`, above all overlays (500), tooltips (600), floats (700), and toasts (800) — overlays never cover the footer.
+- The Prestige overlay uses two separate update paths: `updatePrestigeStats()` runs every tick to keep the shard gain preview and multiplier live; `renderPrestigeOverlay()` (full grid rebuild) is called only on open or after a purchase. Never call `renderPrestigeOverlay()` from `updateUI()` — it destroys button DOM between mousedown and mouseup, breaking clicks.
+- z-index stack: starfield canvas (1) → main content (2) → HUD (100) → Orb (400) → Overlays (500) → Tooltip (600) → Floats/FX canvas (700) → Toasts (800) → Footer (900).
 - Unlock button cost text is dynamic — `updateShop()` calls `getLunarUnlockThreshold()` / `getSolarUnlockThreshold()` each frame so the display reflects `moongate`/`sun_door` prestige upgrades.
 
 ## Bouncing Orb
@@ -203,6 +203,27 @@ Applied as final step in `getProductionRates()`. When shards = 0, multiplier = 1
 - `prestigeReset()` — awards shards, selectively wipes run state, calls bonuses + save (in `state.js`)
 - `getLunarUnlockThreshold()` / `getSolarUnlockThreshold()` — return 750 or 1000 depending on upgrades (in `engine.js`)
 - `tryBuyPrestigeUpgrade(id)` — deducts shards, pushes ID to upgrades array, saves (in `engine.js`)
+
+## Visual Effects
+
+All canvas-based effects are animated inside `uiLoop` via `requestAnimationFrame`. Each tick function receives `dt` (seconds since last frame, capped at 0.1s).
+
+### Warp Starfield (`#starfield`, z-index: 1)
+- Fixed full-viewport canvas, `pointer-events: none`.
+- 160 stars, each with a fixed `angle` and a growing `r` (radius from screen center). Stars are drawn as streaks (line from previous `r` to current `r`), giving the space-travel look.
+- Radial speed: `dr/dt = (10 + r) × globalSpeed`. Stars accelerate as they move outward; on reaching `maxR` they respawn near center.
+- `globalSpeed = 1 + log10(1 + totalResources) × 0.6` — scales with `stardust + lunarEssence + solarFlare` current balance.
+- Also draws the background gradient each frame. Inner color lerps between three states (`_BG_TARGETS`) using `f = 1 - e^(-1.15 × dt)` (~4s to 99%): base `#1a0040` → lunar `#001a40` → solar `#1a0800`. On first frame, snaps immediately (handles loaded saves).
+
+### FX Canvas (`#fx-canvas`, z-index: 700)
+- Fixed full-viewport canvas, `pointer-events: none`.
+- Used for Radiant Cascade burst: when `gameState._cascadeFiredThisTick` is true, `_spawnCascadeBurst()` fires 12 orange particles from the Solar HUD element toward the Stardust HUD element, fading out over ~0.6s.
+- Particle positions computed from `getBoundingClientRect()` at spawn time.
+
+### Particle Monitor (`#particle-monitor`, 220×140px)
+- Sits to the right of the Gather button inside `#gather-area` (flexbox row).
+- One bouncing dot per upgrade unit owned: gold (`#ffd700`) for stardust upgrades, blue (`#7eb8f7`) for lunar, orange (`#ff9f43`) for solar.
+- `_syncParticles()` adds dots when upgrade counts increase; clears all when totals drop (prestige reset / reset universe).
 
 ## State Implementation Notes
 
