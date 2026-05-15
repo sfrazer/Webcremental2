@@ -338,6 +338,9 @@ function updateShop() {
 function updateUI() {
   updateHUD();
   updateShop();
+  if (!document.getElementById('prestige-overlay').classList.contains('hidden')) {
+    renderPrestigeOverlay();
+  }
 
   // Cascade visual feedback
   if (gameState._cascadeFiredThisTick) {
