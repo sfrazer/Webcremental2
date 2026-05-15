@@ -22,6 +22,24 @@ test/run-tests.mjs — headless Node.js test runner (uses jsdom; run with `node 
 
 Script load order in `index.html`: `research.js` → `state.js` → `engine.js` → `game.js` (global scope, no ES modules).
 
+## Naming Conventions
+
+- `get*` — pure read, no side effects (e.g. `getUpgradeCost`, `getProductionRates`, `getNodeState`)
+- `try*` — mutation that can fail; returns `true` on success, `false` on failure (e.g. `tryBuyUpgrade`, `tryUnlockResearchNode`, `tryBuyPrestigeUpgrade`)
+- `*Reset` — wipes a significant chunk of state (e.g. `prestigeReset`, `resetGame`)
+- `add*` / `spend*` — unconditional resource mutations; `spend*` also updates stat tracking
+- `update*` — DOM/UI refresh functions in `game.js`; no return value, side-effects only
+- `render*` — builds/rebuilds a UI section from scratch (e.g. `renderPrestigeOverlay`, `renderResearchTree`)
+- `_*` — internal/private to a file; not intended to be called from other files (e.g. `_showUnlockButton`)
+
+## Data Placement
+
+Static data arrays live in the file that primarily interacts with them:
+- `RESEARCH_NODES` / `RESEARCH_NODE_MAP` in `research.js` — consumed entirely by research helpers
+- `PRESTIGE_UPGRADES`, `UPGRADE_BASE_RATES`, `UPGRADE_BASE_COSTS`, `UPGRADE_RESOURCE`, `UPGRADE_GROUP` in `engine.js` — consumed by cost/production logic
+
+When adding new content (new upgrade tiers, new prestige upgrades, new research nodes), add the data to the same file as the functions that read it — not to a separate data file. This keeps the schema and logic together and avoids cross-file implicit coupling.
+
 ## Architecture
 
 **Research** (`js/research.js`) defines the static `RESEARCH_NODES` array and `RESEARCH_NODE_MAP` lookup. Must load first — engine and game both depend on it.
@@ -149,7 +167,7 @@ Cost reduction stacks multiplicatively at buy-time: both Frugal Harvesting nodes
 
 ### Shard formula
 ```js
-Math.floor(Math.sqrt(totalStardust / 5000) + totalLunarEssence / 500 + totalSolarFlare / 50)
+Math.floor(Math.sqrt(totalStardust / 5000) + totalLunarEssence / 1000 + totalSolarFlare / 500)
 ```
 Minimum 1 shard required to allow rebirth. Button is hidden until threshold is met.
 
@@ -162,12 +180,12 @@ Applied as final step in `getProductionRates()`. When shards = 0, multiplier = 1
 ### Prestige upgrades (`PRESTIGE_UPGRADES` in `engine.js`)
 | ID | Name | Cost | Effect |
 |---|---|---|---|
-| `starter_stardust` | Stardust Cache | 2 | Begin each run with 500 Stardust |
-| `quick_gather` | Practiced Hands | 2 | +2 stardust per gather click |
-| `ancient_memory` | Ancient Memory | 3 | Begin each run with root research node unlocked |
-| `moongate` | Moongate | 3 | Lunar Essence unlocks at 750 Stardust (down from 1,000) |
-| `sun_door` | Sun Door | 4 | Solar Flare unlocks at 750 Lunar Essence (down from 1,000) |
-| `frugal_universe` | Frugal Universe | 5 | All upgrade costs permanently ×0.80 |
+| `starter_stardust` | Stardust Cache | 3 | Begin each run with 500 Stardust |
+| `quick_gather` | Practiced Hands | 3 | +2 stardust per gather click |
+| `ancient_memory` | Ancient Memory | 5 | Begin each run with root research node unlocked |
+| `moongate` | Moongate | 5 | Lunar Essence unlocks at 750 Stardust (down from 1,000) |
+| `sun_door` | Sun Door | 7 | Solar Flare unlocks at 750 Lunar Essence (down from 1,000) |
+| `frugal_universe` | Frugal Universe | 8 | All upgrade costs permanently ×0.80 |
 
 ### What resets / what persists
 | Field | On Prestige | On Reset Universe |
