@@ -102,7 +102,7 @@ function renderAchievements() {
   }
 }
 
-function renderPrestigeOverlay() {
+function updatePrestigeStats() {
   const shards   = gameState.prestige.shards;
   const gain     = getPrestigeShardGain();
   const newTotal = shards + gain;
@@ -111,7 +111,12 @@ function renderPrestigeOverlay() {
   document.getElementById('prestige-new-total').textContent = newTotal;
   document.getElementById('prestige-new-mult').textContent = '×' + (1 + newTotal * 0.10).toFixed(2);
   document.getElementById('btn-confirm-prestige').disabled = gain < 1;
+}
 
+function renderPrestigeOverlay() {
+  updatePrestigeStats();
+
+  const shards = gameState.prestige.shards;
   const grid = document.getElementById('prestige-upgrades-grid');
   grid.innerHTML = '';
   for (const upg of PRESTIGE_UPGRADES) {
@@ -339,18 +344,220 @@ function updateUI() {
   updateHUD();
   updateShop();
   if (!document.getElementById('prestige-overlay').classList.contains('hidden')) {
-    renderPrestigeOverlay();
+    updatePrestigeStats();
   }
 
   // Cascade visual feedback
   if (gameState._cascadeFiredThisTick) {
-    const el = document.getElementById('hud-stardust-amount');
-    if (el) spawnFloatNearEl('⚡', el, '#4fc3f7');
+    _spawnCascadeBurst();
     gameState._cascadeFiredThisTick = false;
   }
 
   checkAchievements();
   if (researchRendered) refreshResearchNodeStates();
+}
+
+// ─── Starfield ────────────────────────────────────────────────────────────────
+
+// Inner color of the background radial gradient per unlock state
+const _BG_TARGETS = {
+  base:  [26,  0, 64],   // #1a0040
+  lunar: [ 0, 26, 64],   // #001a40
+  solar: [26,  8,  0],   // #1a0800
+};
+let _bgColor = null;  // current interpolated RGB, null = snap on first frame
+
+let _stars = null, _starW = 0, _starH = 0;
+
+function _newStar(maxR, spread) {
+  const angle = Math.random() * Math.PI * 2;
+  return {
+    angle,
+    r:          spread ? Math.random() * maxR * 0.85 : 1 + Math.random() * 15,
+    size:       0.4 + Math.random() * 1.2,
+    brightness: 0.5 + Math.random() * 0.5
+  };
+}
+
+function _initStars(maxR) {
+  _stars = Array.from({ length: 160 }, () => _newStar(maxR, true));
+}
+
+function _tickStarfield(dt) {
+  const canvas = document.getElementById('starfield');
+  if (!canvas) return;
+  const W = window.innerWidth, H = window.innerHeight;
+  if (W !== _starW || H !== _starH) {
+    canvas.width = W; canvas.height = H;
+    _starW = W; _starH = H;
+    _stars = null;
+  }
+  const ctx = canvas.getContext('2d');
+  const maxR = Math.max(W, H) * 0.75;
+  if (!_stars) _initStars(maxR);
+
+  const r = gameState.resources;
+  const total = r.stardust + r.lunarEssence + r.solarFlare;
+  const speed = 1 + Math.log10(1 + total) * 0.6;
+
+  // Interpolate background gradient color toward current unlock state
+  const targetKey = r.solarFlare > 0 || gameState.unlocks.solarFlare ? 'solar'
+                  : gameState.unlocks.lunarEssence ? 'lunar' : 'base';
+  const target = _BG_TARGETS[targetKey];
+  if (!_bgColor) {
+    _bgColor = [...target];
+  } else {
+    const f = 1 - Math.exp(-1.15 * dt);
+    for (let i = 0; i < 3; i++) _bgColor[i] += (target[i] - _bgColor[i]) * f;
+  }
+
+  const cx = W / 2, cy = H / 2;
+  const grad = ctx.createRadialGradient(cx, 0, 0, cx, H * 0.6, Math.max(W, H));
+  grad.addColorStop(0, `rgb(${_bgColor.map(Math.round).join(',')})`);
+  grad.addColorStop(1, '#06000f');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  for (const s of _stars) {
+    const prevR = s.r;
+    s.r += (10 + s.r * 1.0) * speed * dt;
+
+    if (s.r > maxR) {
+      Object.assign(s, _newStar(maxR, false));
+      continue;
+    }
+
+    const alpha = (0.3 + 0.7 * Math.min(s.r / maxR, 1)) * s.brightness;
+    const width = s.size * (0.3 + s.r / maxR * 0.7);
+
+    ctx.beginPath();
+    ctx.moveTo(cx + prevR * Math.cos(s.angle), cy + prevR * Math.sin(s.angle));
+    ctx.lineTo(cx + s.r   * Math.cos(s.angle), cy + s.r   * Math.sin(s.angle));
+    ctx.strokeStyle = `rgba(255,255,255,${alpha.toFixed(3)})`;
+    ctx.lineWidth = width;
+    ctx.stroke();
+  }
+}
+
+// ─── FX Canvas (cascade burst) ────────────────────────────────────────────────
+
+let _burstParticles = [];
+let _fxW = 0, _fxH = 0;
+
+function _spawnCascadeBurst() {
+  const src = document.getElementById('hud-solar-amount');
+  const dst = document.getElementById('hud-stardust-amount');
+  if (!src || !dst) return;
+  const sr = src.getBoundingClientRect();
+  const dr = dst.getBoundingClientRect();
+  const sx = sr.left + sr.width  / 2;
+  const sy = sr.top  + sr.height / 2;
+  const dx = dr.left + dr.width  / 2;
+  const dy = dr.top  + dr.height / 2;
+  const angle = Math.atan2(dy - sy, dx - sx);
+  for (let i = 0; i < 12; i++) {
+    const spread = (Math.random() - 0.5) * 1.2;
+    const speed  = 120 + Math.random() * 120;
+    const life   = 0.5 + Math.random() * 0.2;
+    _burstParticles.push({
+      x: sx, y: sy,
+      vx: Math.cos(angle + spread) * speed,
+      vy: Math.sin(angle + spread) * speed,
+      life, maxLife: life
+    });
+  }
+}
+
+function _tickFx(dt) {
+  const canvas = document.getElementById('fx-canvas');
+  if (!canvas) return;
+  const W = window.innerWidth, H = window.innerHeight;
+  if (W !== _fxW || H !== _fxH) {
+    canvas.width = W; canvas.height = H;
+    _fxW = W; _fxH = H;
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  _burstParticles = _burstParticles.filter(p => p.life > 0);
+  for (const p of _burstParticles) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+    const alpha = Math.max(0, p.life / p.maxLife);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,159,67,${alpha.toFixed(3)})`;
+    ctx.fill();
+  }
+}
+
+// ─── Particle Monitor ─────────────────────────────────────────────────────────
+
+const _DOT_COLORS = { stardust: '#ffd700', lunar: '#7eb8f7', solar: '#ff9f43' };
+const _DOT_R = 3;
+let _particles = [];
+let _lastDotCounts = { stardust: 0, lunar: 0, solar: 0 };
+
+function _getUpgradeTotals() {
+  const u = gameState.upgrades;
+  return {
+    stardust: u.stardust.telescope + u.stardust.collector + u.stardust.siphon,
+    lunar:    u.lunar.well + u.lunar.condenser + u.lunar.alchemist,
+    solar:    u.solar.scoop + u.solar.forge + u.solar.reactor
+  };
+}
+
+function _syncParticles(W, H) {
+  const totals = _getUpgradeTotals();
+  const newTotal = totals.stardust + totals.lunar + totals.solar;
+  const tracked  = _lastDotCounts.stardust + _lastDotCounts.lunar + _lastDotCounts.solar;
+
+  if (newTotal < tracked) {
+    _particles = [];
+    _lastDotCounts = { stardust: 0, lunar: 0, solar: 0 };
+  }
+
+  for (const [key, color] of Object.entries(_DOT_COLORS)) {
+    for (let i = _lastDotCounts[key]; i < totals[key]; i++) {
+      const speed = 20 + Math.random() * 60;
+      const angle = Math.random() * Math.PI * 2;
+      _particles.push({
+        x: _DOT_R + Math.random() * (W - _DOT_R * 2),
+        y: _DOT_R + Math.random() * (H - _DOT_R * 2),
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        color
+      });
+    }
+    _lastDotCounts[key] = totals[key];
+  }
+}
+
+function _tickParticles(dt) {
+  const canvas = document.getElementById('particle-monitor');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  _syncParticles(W, H);
+
+  for (const p of _particles) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    if (p.x < _DOT_R)     { p.x = _DOT_R;     p.vx =  Math.abs(p.vx); }
+    if (p.x > W - _DOT_R) { p.x = W - _DOT_R; p.vx = -Math.abs(p.vx); }
+    if (p.y < _DOT_R)     { p.y = _DOT_R;     p.vy =  Math.abs(p.vy); }
+    if (p.y > H - _DOT_R) { p.y = H - _DOT_R; p.vy = -Math.abs(p.vy); }
+  }
+
+  ctx.clearRect(0, 0, W, H);
+  for (const p of _particles) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, _DOT_R, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+  }
 }
 
 // ─── Orb ─────────────────────────────────────────────────────────────────────
@@ -570,7 +777,14 @@ function bindEvents() {
 
 // ─── RAF UI Loop ──────────────────────────────────────────────────────────────
 
-function uiLoop() {
+let _lastFrameTime = 0;
+
+function uiLoop(ts) {
+  const dt = _lastFrameTime ? Math.min((ts - _lastFrameTime) / 1000, 0.1) : 0;
+  _lastFrameTime = ts;
+  _tickStarfield(dt);
+  _tickFx(dt);
+  _tickParticles(dt);
   updateUI();
   saveGame();
   requestAnimationFrame(uiLoop);
