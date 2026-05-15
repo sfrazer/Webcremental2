@@ -507,10 +507,14 @@ function bindEvents() {
 
   // Prestige overlay
   document.getElementById('btn-prestige').addEventListener('click', () => {
+    const overlay = document.getElementById('prestige-overlay');
+    if (!overlay.classList.contains('hidden')) {
+      overlay.classList.add('hidden');
+      return;
+    }
     document.getElementById('research-overlay').classList.add('hidden');
     document.getElementById('achievements-overlay').classList.add('hidden');
     hideTooltip();
-    const overlay = document.getElementById('prestige-overlay');
     overlay.style.top = document.getElementById('hud').offsetHeight + 'px';
     overlay.classList.remove('hidden');
     renderPrestigeOverlay();
