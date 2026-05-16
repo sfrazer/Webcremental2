@@ -1,5 +1,9 @@
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+// Tracked per epidemic/infect tick so game.js can animate them.
+let _outbreakCitiesThisTick = [];
+let _lastEpidemicCity = null;
+
 function getRun() { return gameState.run; }
 
 function getCuresNeeded(roleId) {
@@ -73,6 +77,7 @@ function resolveOutbreak(cityId, color, visited) {
 
   const run = getRun();
   run.outbreaks++;
+  _outbreakCitiesThisTick.push(cityId);
   appendLog(`OUTBREAK in ${CITY_MAP[cityId].name}! (${run.outbreaks}/8)`);
 
   // Priority City lose condition (Legendary)
@@ -101,6 +106,7 @@ function resolveInfection(cityId, color, count) {
 
 function resolveEpidemic() {
   const run = getRun();
+  _lastEpidemicCity = null;
   appendLog('EPIDEMIC!');
 
   // 1. Intensify: advance infection rate
@@ -114,6 +120,7 @@ function resolveEpidemic() {
   run.infectionDiscard.unshift(bottomCard);
 
   if (bottomCard.type === CARD_TYPE.INFECTION) {
+    _lastEpidemicCity = bottomCard.cityId;
     const color = CITY_MAP[bottomCard.cityId].color;
     appendLog(`Epidemic infects ${CITY_MAP[bottomCard.cityId].name} with 3 ${color} cubes.`);
     const result = resolveInfection(bottomCard.cityId, color, 3);
@@ -447,8 +454,8 @@ function doDrawPhase() {
     const card = run.playerDeck.shift();
 
     if (card.type === CARD_TYPE.EPIDEMIC) {
-      events.push({ type: 'epidemic' });
       const result = resolveEpidemic();
+      events.push({ type: 'epidemic', cityId: _lastEpidemicCity });
       if (result && result.startsWith('lose')) {
         run.loseReason = run.loseReason || 'Cube supply depleted!';
         events.push({ type: 'lose', reason: run.loseReason });
@@ -472,6 +479,7 @@ function doDrawPhase() {
 function doInfectPhase() {
   const run = getRun();
   const events = [];
+  _outbreakCitiesThisTick = [];
 
   if (run.skipNextInfect) {
     run.skipNextInfect = false;
@@ -500,6 +508,9 @@ function doInfectPhase() {
       }
     }
   }
+
+  // Include outbreak events so game.js can animate them
+  for (const c of _outbreakCitiesThisTick) events.push({ type: 'outbreak', cityId: c });
 
   // Reset per-turn transient state
   run.quarantineSealCity = null;

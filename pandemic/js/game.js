@@ -1,6 +1,16 @@
 // ─── UI State ─────────────────────────────────────────────────────────────────
 
 let _actionMode = null;
+
+// Pan / zoom state
+let _zoom = { x: 0, y: 0, scale: 1 };
+let _dragging = false;
+let _dragStart = { x: 0, y: 0 };
+let _dragDist = 0;   // px moved since mousedown; used to distinguish click vs drag
+let _wasDragging = false;
+let _animating = false;
+
+const WRAP_THRESHOLD = 400; // px x-gap beyond which a connection renders as dashed/wrapped
 // 'drive' | 'direct_flight' | 'charter_flight' | 'shuttle' | 'treat' | 'cure' | 'airlift'
 // | 'government_grant' | 'resilient_pop' | 'field_hospital' | 'emergency_protocol'
 // | 'quarantine_seal' | 'contingency_retrieve'
@@ -16,6 +26,7 @@ function init() {
 
   _bindFooter();
   _bindOptions();
+  _initMapPanZoom();
 
   if (gameState.run && gameState.run.active) {
     _showGame();
@@ -99,7 +110,16 @@ const CUBE_COLORS = { blue: '#4a90d9', yellow: '#e0b800', black: '#aaa', red: '#
 
 function renderMap() {
   const svg = document.getElementById('map-svg');
-  svg.innerHTML = '';
+
+  // Keep the map-group so the pan/zoom transform is preserved across re-renders.
+  let group = document.getElementById('map-group');
+  if (!group) {
+    group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    group.setAttribute('id', 'map-group');
+    svg.appendChild(group);
+    _applyMapTransform();
+  }
+  group.innerHTML = '';
 
   const run = gameState.run;
   const highlightSet = _getHighlightCities();
@@ -112,11 +132,29 @@ function renderMap() {
       if (drawn.has(key)) continue;
       drawn.add(key);
       const nb = CITY_MAP[neighborId];
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', city.x); line.setAttribute('y1', city.y);
-      line.setAttribute('x2', nb.x);   line.setAttribute('y2', nb.y);
-      line.setAttribute('class', 'map-connection');
-      svg.appendChild(line);
+      const isWrap = Math.abs(city.x - nb.x) > WRAP_THRESHOLD;
+
+      if (isWrap) {
+        // Render as two edge-stubs with arrow nubs to signal the wrap.
+        // Left city gets a stub going toward x=0; right city gets a stub toward x=MAP_W.
+        const left  = city.x < nb.x ? city : nb;
+        const right = city.x < nb.x ? nb  : city;
+        const midY  = (left.y + right.y) / 2;
+        for (const [cx, cy, edgeX] of [[left.x, left.y, 0], [right.x, right.y, MAP_W]]) {
+          const stubX = edgeX === 0 ? cx - 28 : cx + 28;
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', cx); line.setAttribute('y1', cy);
+          line.setAttribute('x2', stubX); line.setAttribute('y2', cy);
+          line.setAttribute('class', 'map-connection wrap-connection');
+          group.appendChild(line);
+        }
+      } else {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', city.x); line.setAttribute('y1', city.y);
+        line.setAttribute('x2', nb.x);   line.setAttribute('y2', nb.y);
+        line.setAttribute('class', 'map-connection');
+        group.appendChild(line);
+      }
     }
   }
 
@@ -185,8 +223,87 @@ function renderMap() {
     }
 
     g.addEventListener('click', () => _onCityClick(city.id));
-    svg.appendChild(g);
+    group.appendChild(g);
   }
+}
+
+// ─── Pan / zoom ───────────────────────────────────────────────────────────────
+
+function _initMapPanZoom() {
+  const svg = document.getElementById('map-svg');
+  svg.style.cursor = 'grab';
+
+  svg.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = svg.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const factor = e.deltaY < 0 ? 1.15 : 0.87;
+    _zoom.x = mx - (mx - _zoom.x) * factor;
+    _zoom.y = my - (my - _zoom.y) * factor;
+    _zoom.scale = Math.max(0.4, Math.min(5, _zoom.scale * factor));
+    _applyMapTransform();
+  }, { passive: false });
+
+  svg.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    _dragging = true;
+    _dragDist = 0;
+    _dragStart = { x: e.clientX - _zoom.x, y: e.clientY - _zoom.y };
+    svg.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!_dragging) return;
+    const dx = e.clientX - (_dragStart.x + _zoom.x);
+    const dy = e.clientY - (_dragStart.y + _zoom.y);
+    _dragDist += Math.sqrt(dx * dx + dy * dy);
+    _zoom.x = e.clientX - _dragStart.x;
+    _zoom.y = e.clientY - _dragStart.y;
+    _applyMapTransform();
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!_dragging) return;
+    _wasDragging = _dragDist > 5;
+    _dragging = false;
+    document.getElementById('map-svg').style.cursor = 'grab';
+    // Clear wasDragging after click event fires
+    setTimeout(() => { _wasDragging = false; }, 0);
+  });
+}
+
+function _applyMapTransform() {
+  const group = document.getElementById('map-group');
+  if (group) group.setAttribute('transform',
+    `translate(${_zoom.x.toFixed(2)}, ${_zoom.y.toFixed(2)}) scale(${_zoom.scale.toFixed(4)})`);
+}
+
+// ─── City animations ──────────────────────────────────────────────────────────
+
+function _animateCity(cityId, cssClass) {
+  const el = document.querySelector(`[data-city="${cityId}"] .city-circle`);
+  if (!el) return;
+  el.classList.remove(cssClass);
+  // Force reflow so re-adding the class restarts the animation
+  void el.offsetWidth;
+  el.classList.add(cssClass);
+  setTimeout(() => el.classList.remove(cssClass), 700);
+}
+
+function _showEpidemicAlert(cityId) {
+  return new Promise(resolve => {
+    const el = document.getElementById('epidemic-alert');
+    const sub = document.getElementById('epidemic-city');
+    if (sub) sub.textContent = cityId ? CITY_MAP[cityId]?.name || '' : '';
+    el.classList.remove('hidden');
+    if (cityId) _animateCity(cityId, 'outbreaking');
+    setTimeout(() => {
+      el.classList.add('hidden');
+      resolve();
+    }, 1800);
+  });
 }
 
 function _getHighlightCities() {
@@ -225,6 +342,7 @@ function _getHighlightCities() {
 // ─── City click handler ───────────────────────────────────────────────────────
 
 function _onCityClick(cityId) {
+  if (_wasDragging) return;
   const run = gameState.run;
   if (!run || run.phase !== 'action') return;
 
@@ -302,7 +420,7 @@ function updateActions() {
     { id: 'build',      label: 'Build Station',      enabled: !city.station && (run.role === 'operations_expert' || hasCurrentCityCard) },
     { id: 'treat',      label: 'Treat Disease',      enabled: anyCubes },
     { id: 'cure',       label: 'Discover Cure',      enabled: canCure },
-    { id: 'end_phase',  label: `End Turn  (${run.actionsLeft} left)`, enabled: true, special: true },
+    { id: 'end_phase',  label: `End Turn  (${run.actionsLeft} left)`, enabled: !_animating, special: true },
   ];
 
   if (run.role === 'dispatcher' && !run.dispatcherUsedFreeMove) {
@@ -424,29 +542,47 @@ function _showContingencyMenu() {
 
 // ─── Draw + Infect automation ─────────────────────────────────────────────────
 
-function _doDrawThenInfect() {
+async function _doDrawThenInfect() {
+  if (_animating) return;
+  _animating = true;
+
   const drawEvents = doDrawPhase();
-  for (const ev of drawEvents) {
-    if (ev.type === 'epidemic') _toast('EPIDEMIC!', 'danger');
+
+  // Show epidemic alert for each epidemic drawn (rare: usually 1 per turn max)
+  const epidemics = drawEvents.filter(e => e.type === 'epidemic');
+  if (epidemics.length > 0) {
+    renderMap();
+    updateFooter();
+    for (const ev of epidemics) {
+      await _showEpidemicAlert(ev.cityId);
+    }
   }
 
-  if (checkLoseCondition()) {
-    _showGameOver(false);
-    return;
-  }
-  if (checkWinCondition()) {
-    _showGameOver(true);
-    return;
-  }
+  if (checkLoseCondition()) { _animating = false; _showGameOver(false); return; }
+  if (checkWinCondition())  { _animating = false; _showGameOver(true);  return; }
 
+  // Run infect phase (state updates happen synchronously)
   const infectEvents = doInfectPhase();
+
+  // Render updated cube counts, then animate each affected city
+  renderMap();
+  updateFooter();
+
   for (const ev of infectEvents) {
+    if (ev.type === 'infection') _animateCity(ev.cityId, 'infecting');
+    if (ev.type === 'outbreak')  _animateCity(ev.cityId, 'outbreaking');
     if (ev.type === 'challenge') _toast(ev.card.name + '!', 'danger');
   }
 
-  if (checkLoseCondition()) { _showGameOver(false); return; }
-  if (checkWinCondition()) { _showGameOver(true); return; }
+  // Wait for animations to finish before checking game over
+  if (infectEvents.some(e => e.type === 'outbreak' || e.type === 'infection')) {
+    await new Promise(r => setTimeout(r, 750));
+  }
 
+  if (checkLoseCondition()) { _animating = false; _showGameOver(false); return; }
+  if (checkWinCondition())  { _animating = false; _showGameOver(true);  return; }
+
+  _animating = false;
   renderMap();
   updateUI();
 }
@@ -634,7 +770,7 @@ function updateLog() {
   const run = gameState.run;
   const el = document.getElementById('event-log');
   if (!run) { el.innerHTML = ''; return; }
-  const entries = run.log.slice(-8);
+  const entries = run.log.slice(-14);
   el.innerHTML = entries.map(e => `<div class="log-entry">${e}</div>`).join('');
   el.scrollTop = el.scrollHeight;
 }
