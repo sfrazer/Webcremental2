@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Outbreak Protocol</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ── Setup Screen ─────────────────────────────────────────────────────── -->
+<div id="screen-setup">
+  <div id="setup-panel">
+    <h1 class="game-title">Outbreak Protocol</h1>
+    <p class="game-subtitle">A solo rogue-lite based on Pandemic</p>
+
+    <div id="setup-controls">
+      <label for="difficulty-select">Difficulty</label>
+      <select id="difficulty-select">
+        <option value="4">Introductory — 4 Epidemics (cure 2 diseases)</option>
+        <option value="5">Standard — 5 Epidemics (cure 3 diseases)</option>
+        <option value="6">Heroic — 6 Epidemics (cure all 4 or eradicate 2)</option>
+        <option value="7">Legendary — 7 Epidemics (cure all 4 + protect Priority City)</option>
+      </select>
+    </div>
+
+    <h2>Choose Your Role</h2>
+    <div id="role-grid"></div>
+
+    <div id="setup-buttons">
+      <button id="btn-start-run" class="primary-btn">Start Run</button>
+      <button id="btn-meta-shop" class="secondary-btn">Meta Shop</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Game Screen ──────────────────────────────────────────────────────── -->
+<div id="screen-game" class="hidden">
+  <div id="game-layout">
+
+    <!-- Map -->
+    <div id="map-container">
+      <svg id="map-svg" viewBox="0 0 900 500" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+
+    <!-- Right panel: hand + actions -->
+    <div id="side-panel">
+      <div id="hand-section">
+        <div class="section-label">Hand</div>
+        <div id="hand-area"></div>
+      </div>
+      <div id="actions-section">
+        <div class="section-label">Actions</div>
+        <div id="actions-panel"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Event log -->
+  <div id="event-log-bar">
+    <div class="section-label">Log</div>
+    <div id="event-log"></div>
+  </div>
+</div>
+
+<!-- ── Footer (always visible) ──────────────────────────────────────────── -->
+<footer id="game-footer">
+  <button id="btn-options" title="Options">⚙</button>
+  <span class="stat-group">
+    Cures: <strong id="stat-cures">—</strong>
+    &nbsp;|&nbsp;
+    Eradicated: <strong id="stat-eradicated">—</strong>
+  </span>
+  <span class="stat-group">
+    Cubes:
+    <span class="cube-stat blue">●<strong id="stat-cube-blue">—</strong></span>
+    <span class="cube-stat yellow">●<strong id="stat-cube-yellow">—</strong></span>
+    <span class="cube-stat black">●<strong id="stat-cube-black">—</strong></span>
+    <span class="cube-stat red">●<strong id="stat-cube-red">—</strong></span>
+  </span>
+  <span class="stat-group">
+    Deck: <strong id="stat-deck">—</strong>
+    &nbsp;|&nbsp;
+    Outbreaks: <strong id="stat-outbreaks">—</strong>
+    &nbsp;|&nbsp;
+    Rate: <strong id="stat-rate">—</strong>
+  </span>
+  <span class="stat-group">
+    Turn: <strong id="stat-turn">—</strong>
+    &nbsp;|&nbsp;
+    <strong id="stat-phase">No active run</strong>
+  </span>
+  <span class="stat-group">
+    RP: <strong id="stat-rp">0</strong>
+  </span>
+</footer>
+
+<!-- ── Toast container ──────────────────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<!-- ── Modals ───────────────────────────────────────────────────────────── -->
+
+<!-- Options -->
+<div id="modal-options" class="modal hidden">
+  <div class="modal-box">
+    <h2>Options</h2>
+    <button id="btn-export" class="modal-action-btn">⬇ Export Save</button>
+    <button id="btn-import" class="modal-action-btn">⬆ Import Save</button>
+    <input type="file" id="import-file" accept=".json" style="display:none">
+    <hr>
+    <button id="btn-reset" class="modal-action-btn danger-btn">☠ Reset All Progress</button>
+    <button class="modal-close-btn modal-self-close">✕ Close</button>
+  </div>
+</div>
+
+<!-- Meta shop -->
+<div id="modal-meta-shop" class="modal hidden">
+  <div class="modal-box modal-wide">
+    <div id="meta-shop-body"></div>
+  </div>
+</div>
+
+<!-- Win / Lose -->
+<div id="modal-game-over" class="modal hidden">
+  <div class="modal-box">
+    <h2 id="game-over-title"></h2>
+    <p id="game-over-reason"></p>
+    <p id="game-over-rp" class="rp-earned"></p>
+    <div class="modal-buttons">
+      <button id="btn-play-again" class="primary-btn">Play Again</button>
+      <button id="btn-game-over-shop" class="secondary-btn">Meta Shop</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generic picker / list modal -->
+<div id="modal-generic" class="modal hidden">
+  <div class="modal-box">
+    <div id="modal-generic-body"></div>
+  </div>
+</div>
+
+<!-- ── Scripts ──────────────────────────────────────────────────────────── -->
+<script src="js/cities.js"></script>
+<script src="js/roles.js"></script>
+<script src="js/cards.js"></script>
+<script src="js/state.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/game.js"></script>
+
+<script>
+  // Close any modal when clicking its self-close button
+  document.querySelectorAll('.modal-self-close').forEach(btn => {
+    btn.addEventListener('click', () => btn.closest('.modal').classList.add('hidden'));
+  });
+</script>
+</body>
+</html>
