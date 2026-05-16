@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Outbreak Protocol — Tests</title>
+  <style>
+    body { font-family: monospace; background: #0d1117; color: #e6edf3; padding: 24px; }
+    h1 { color: #4a90d9; margin-bottom: 16px; }
+    .summary { font-size: 1.1rem; margin-bottom: 20px; padding: 10px; background: #21262d; border-radius: 4px; }
+    .pass { color: #2ea043; }
+    .fail { color: #da3633; }
+    .test { padding: 3px 0; font-size: .85rem; }
+    .test.fail { background: #1f0606; padding: 3px 6px; border-left: 3px solid #da3633; }
+    .group { margin-top: 16px; color: #8b949e; font-weight: bold; font-size: .9rem; }
+    pre { color: #ff7b72; font-size: .78rem; margin-left: 20px; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Outbreak Protocol — Unit Tests</h1>
+  <div id="summary" class="summary">Running…</div>
+  <div id="results"></div>
+
+  <!-- Load logic files only (no game.js — it needs DOM) -->
+  <script src="../js/cities.js"></script>
+  <script src="../js/roles.js"></script>
+  <script src="../js/cards.js"></script>
+  <script src="../js/state.js"></script>
+  <script src="../js/engine.js"></script>
+  <script src="tests.js"></script>
+</body>
+</html>
